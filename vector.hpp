@@ -17,13 +17,11 @@
 
 
 //---------------------------Const section-----------------------------------------
-const char *UNINIT_PTR  = reinterpret_cast<const char *> (0xDEADBEEF);
-const char *DESTR_PTR   = reinterpret_cast<const char *> (0xBAADF00D);
-const char *INVALID_PTR = reinterpret_cast<const char *> (0xDEADDEAD);
-const size_t POISONED_SIZE_T = 0xAB0BAC0C;
-
-const size_t VECTOR_MAX_CAPACITY       = 1024; //static const?
-const size_t DEFAULT_RESIZE_MULTIPLIER = 2;    //static const?
+const char *UNINIT_PTR           = reinterpret_cast<const char *> (0xDEADBEEF);
+const char *DESTR_PTR            = reinterpret_cast<const char *> (0xBAADF00D);
+const char *INVALID_PTR          = reinterpret_cast<const char *> (0xDEADDEAD);
+const char *MOVED_REMAINDERS_PTR = reinterpret_cast<const char *> (0xFEEDCAFE);
+const size_t POISONED_SIZE_T     = 0xAB0BAC0C;
 //---------------------------------------------------------------------------------
 
 template<typename Type>
@@ -68,10 +66,7 @@ public:
     VectorBaseIterator(VectorBaseIterator<OtherContainer, OtherItType> &&other)
     {
         // container_ = other.container_;
-        // index_     = other.index;
-
-        // other.container_ = reinterpret_cast<Container *> (DESTR_PTR);
-        // other.index_     = POISONED_SIZE_T;
+        // index_     = other.index_;
 
         *this = std::move(other);
     }
@@ -96,7 +91,7 @@ public:
             container_ = other.container_;
             index_     = other.index_;
 
-            other.container_ = const_cast<OtherContainer *> (reinterpret_cast<const OtherContainer *> (DESTR_PTR));
+            other.container_ = const_cast<OtherContainer *> (reinterpret_cast<const OtherContainer *> (MOVED_REMAINDERS_PTR));
             other.index_     = POISONED_SIZE_T;
         }
 
@@ -172,7 +167,7 @@ public:
         return operator +(-value);
     }
 
-    ptrdiff_t operator -(const VectorBaseIterator &other) const
+    difference_type operator -(const VectorBaseIterator &other) const
     {
         return index_ - other.index_;
     }
@@ -292,7 +287,6 @@ public:
         capacity_ = other.capacity_;
         size_     = other.size_;
         data_ = new char[capacity_ * sizeof(Type)];
-        
         copy_data_to_uninit_place_(data_, other.data_,  other.size_);
 
         return *this;
@@ -417,7 +411,7 @@ public:
 
     Type &operator [](size_t index)
     {
-        assert(index < capacity_);
+        assert(index <= size_);
 
         return reinterpret_cast<Type &> (data_[index * sizeof(Type)]);
     }
@@ -497,12 +491,12 @@ public:
 
     std::reverse_iterator<ConstIterator<Vector>> crbegin() const
     {
-        return std::make_reverse_iterator<ConstIterator<Vector>>(this, 0);
+        return std::make_reverse_iterator(ConstIterator<Vector>(this, size_));
     }
     
     std::reverse_iterator<Iterator<Vector>> rbegin()
     {
-        return std::make_reverse_iterator<Iterator<Vector>>(this, 0);
+        return std::make_reverse_iterator(Iterator<Vector>(this, size_));
     }
 
     std::reverse_iterator<ConstIterator<Vector>> rbegin() const
@@ -512,12 +506,12 @@ public:
 
     std::reverse_iterator<ConstIterator<Vector>> crend() const
     {
-        return std::make_reverse_iterator<ConstIterator<Vector>>(this, size_);
+        return std::make_reverse_iterator(ConstIterator<Vector>(this, 0));
     }
 
     std::reverse_iterator<Iterator<Vector>> rend()
     {
-        return std::make_reverse_iterator<Iterator<Vector>>(this, size_);
+        return std::make_reverse_iterator(Iterator<Vector>(this, 0));
     }
 
     std::reverse_iterator<ConstIterator<Vector>> rend() const
@@ -534,8 +528,8 @@ public:
 
     Iterator<Vector> insert(ConstIterator<Vector> pos, const Type &value)
     {
-        ptrdiff_t index = pos - cbegin();
-        if ((index < 0) || (index > static_cast<ptrdiff_t> (size_)))
+        std::ptrdiff_t index = pos - cbegin();
+        if ((index < 0) || (index > static_cast<std::ptrdiff_t> (size_)))
         {
             std::cerr << "ERROR(Vector " << this << "): attempt to insert out of bounds" << std::endl;
 
@@ -544,6 +538,7 @@ public:
 
         reserve(size_ > 0 ? size_ * DEFAULT_RESIZE_MULTIPLIER : 1);
         init_elements_(size_, size_ + 1);
+        
         move_data_(begin() + index + 1, cbegin() + index, size_ - index);
     
         ++size_;
@@ -556,7 +551,7 @@ public:
     template<class... Args>
     Iterator<Vector> emplace(ConstIterator<Vector> pos, Args &&... args)
     {
-        ptrdiff_t index = pos - begin();
+        std::ptrdiff_t index = pos - begin();
         if (index > size_)
         {
             return end();
@@ -580,8 +575,8 @@ public:
 
     Iterator<Vector> erase(ConstIterator<Vector> pos)
     {
-        ptrdiff_t index = pos - begin();
-        if ((index < 0) || (index > static_cast<ptrdiff_t> (size_)))
+        std::ptrdiff_t index = pos - begin();
+        if ((index < 0) || (index > static_cast<std::ptrdiff_t> (size_)))
         {
             std::cerr << "ERROR(Vector " << this << "): attempt to erase out of bounds" << std::endl;
 
@@ -613,15 +608,16 @@ public:
         erase(begin() + size_ - 1);
     }
 
+#define aboba printf("aboba %d\n", __LINE__);
     void resize(size_t new_size, const Type &value = Type())
     {
         if (new_size > VECTOR_MAX_CAPACITY)
         {
-            std::cerr << "ERROR(Vector " << this << "): attempt to resize to more than VECTOR_MAX_CAPACITY (which is " << VECTOR_MAX_CAPACITY << ")" << std::endl; 
+            std::cerr << "ERROR(Vector " << this << "): attempt to resize to more than VECTOR_MAX_CAPACITY (which is "
+                      << VECTOR_MAX_CAPACITY << ")" << std::endl; 
 
             return;
         }
-
         if (new_size <= size_)                                                       // new size is smaller or equal to previous
         {
             destroy_existing_elems_(new_size, size_);
@@ -630,7 +626,6 @@ public:
 
             return;
         }
-
         if (new_size <= capacity_)                                                   // new size is bigger than previous but smaller or equal to capacity
         {
             init_elements_(size_, new_size, value);
@@ -640,9 +635,8 @@ public:
             return;
         }
 
-        size_t new_capacity = calculate_enough_capacity_(capacity_, new_size);       // new size is bigger than capacity
+        size_t new_capacity = calculate_enough_capacity_(new_size);                 // new size is bigger than capacity
         char *new_data = vector_realloc_(new_capacity);
-        init_elements_(size_, new_size, value);
 
         if ((data_ != const_cast<char *> (UNINIT_PTR)) && data_is_valid_())
         {
@@ -650,6 +644,8 @@ public:
         }
 
         data_     = new_data;
+        init_elements_(size_, new_size, value);
+
         capacity_ = new_capacity;
         size_     = new_size;
     }
@@ -728,20 +724,19 @@ private:
         {
             return;
         }
-        
-        if (dest < src)
+
+        bool from_left_to_right = false;
+        if (dest > src)
         {
-            for (size_t counter = 0; counter < quantity; ++counter)
-            {
-                *(casted_dest + counter) = *(casted_src + counter);
-            }
+            from_left_to_right = true;
+            casted_dest += quantity - 1;
+            casted_src  += quantity - 1;
         }
-        else
+        
+        for (size_t counter = 0; counter < quantity; ++counter)
         {
-            for (size_t counter = quantity; counter > 0; --counter)
-            {
-                *(casted_dest + counter - 1) = *(casted_src + counter - 1);
-            }
+            std::ptrdiff_t shift = from_left_to_right ? -counter : counter;
+            *(casted_dest + shift) = *(casted_src + shift);
         }
     }
 
@@ -752,19 +747,18 @@ private:
             return;
         }
 
-        if (dest < src)
+        bool from_left_to_right = false;
+        if (dest > src)
         {
-            for (size_t counter = 0; counter < quantity; ++counter)
-            {
-                *(dest + counter) = my_move(*(src + counter));
-            }
+            from_left_to_right = true;
+            dest += quantity - 1;
+            src  += quantity - 1;
         }
-        else
+
+        for (size_t counter = 0; counter < quantity; ++counter)
         {
-            for (size_t counter = quantity; counter > 0; --counter)
-            {
-                *(dest + counter - 1) = my_move(*(src + counter - 1));
-            }
+            std::ptrdiff_t shift = from_left_to_right ? -counter : counter;
+            *(dest + shift) = my_move(*(src + shift));
         }
     }
 
@@ -779,7 +773,7 @@ private:
 
     bool data_is_valid_() const
     {
-        return (data_ != const_cast<char *> (DESTR_PTR)) && (data_ != const_cast<char *> (INVALID_PTR));
+        return (data_ != const_cast<char *> (DESTR_PTR)) && (data_ != const_cast<char *> (INVALID_PTR) && (data_ != const_cast<char *> (MOVED_REMAINDERS_PTR)));
     }
 
     void destroy_existing_elems_(size_t from, size_t to)
@@ -831,6 +825,9 @@ private:
 
 private:
 //----------------------------Variables--------------------------------------------
+    static const size_t VECTOR_MAX_CAPACITY       = 1024;
+    static const size_t DEFAULT_RESIZE_MULTIPLIER = 2;
+
     size_t capacity_  = 0;
     size_t size_      = 0;
     
