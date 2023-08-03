@@ -2,12 +2,14 @@
 #define BITVECTOR_HPP
 
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <initializer_list>
 #include <iterator>
 #include <type_traits>
-#include "my_move.hpp"
+#include "mymove.hpp"
 #include "vector.hpp"
 
 
@@ -78,240 +80,325 @@ class Vector<bool>
 {
     class BitReference;
 
-    class ConstBitReference
-    {
-    public:
-//---------------------------------------------------------------------------------
+//     class ConstBitReference
+//     {
+//     public:
+// //---------------------------------------------------------------------------------
+//         ConstBitReference(uint8_t *src, size_t shift = MAX_SHIFT)
+//           : src_(src),
+//             shift_(shift)
+//         {
+//             assert(src != nullptr);
+//         }
 
-        ConstBitReference(uint8_t *src, size_t shift = MAX_SHIFT)
-          : src_(src),
-            shift_(shift)
-        {
-            assert(src != nullptr);
-        }
+//         ConstBitReference(const ConstBitReference &other) = default;
+//         ConstBitReference(const BitReference &other)
+//           : src_(const_cast<const uint8_t *> (other.src_)),
+//             shift_(other.shift_)
+//         {}
 
-        ConstBitReference(const ConstBitReference &other) = default;
-        ConstBitReference(const BitReference &other)
-          : src_(const_cast<const uint8_t *> (other.src_)),
-            shift_(other.shift_)
-        {}
+//         ConstBitReference &operator =(const ConstBitReference &other) = delete;
+//         ConstBitReference &operator =(bool value) = delete;
 
-        ConstBitReference &operator =(const ConstBitReference &other) = delete;
-        ConstBitReference &operator =(bool value) = delete;
+//         ~ConstBitReference()
+//         {
+//             src_ = reinterpret_cast<uint8_t *> (const_cast<char *> (DESTR_PTR));
+//             shift_  = POISONED_UINT64_T;    
+//         }
+// //---------------------------------------------------------------------------------
+//         operator bool() const
+//         {
+//             return *src_ & (1 << shift_);
+//         }
 
-        ~ConstBitReference()
-        {
-            src_ = reinterpret_cast<uint8_t *> (const_cast<char *> (DESTR_PTR));
-            shift_  = 0;    
-        }
-//---------------------------------------------------------------------------------
+//         bool operator ==(const ConstBitReference &other) const
+//         {
+//             return (bool) *this == (bool) other; 
+//         }
 
-        operator bool() const
-        {
-            return *src_ & (1 << shift_);
-        }
+//         bool operator !=(const ConstBitReference &other) const
+//         {
+//             return !operator ==(other);
+//         }
 
-        bool operator ==(const ConstBitReference &other) const
-        {
-            return (bool) *this == (bool) other; 
-        }
+//         bool operator <(const ConstBitReference &other) const
+//         {
+//             return !((bool) *this) && (bool) other;
+//         }
 
-        bool operator !=(const ConstBitReference &other) const
-        {
-            return !operator ==(other);
-        }
+//         bool operator >(const ConstBitReference &other) const
+//         {
+//             return other.operator <(*this);
+//         }
 
-        bool operator <(const ConstBitReference &other) const
-        {
-            return !((bool) *this) && (bool) other;
-        }
+//         bool operator <=(const ConstBitReference &other) const
+//         {
+//             return !operator >(other);
+//         }
 
-        bool operator >(const ConstBitReference &other) const
-        {
-            return other.operator <(*this);
-        }
+//         bool operator >=(const ConstBitReference &other) const
+//         {
+//             return !operator <(other);
+//         }
 
-        bool operator <=(const ConstBitReference &other) const
-        {
-            return !operator >(other);
-        }
+//     private:
+// //-----------------------------------Variables-------------------------------------
+//         const uint8_t *src_ = reinterpret_cast<const uint8_t *> (UNINIT_PTR);
+//         size_t shift_ = 0;
+//     };
 
-        bool operator >=(const ConstBitReference &other) const
-        {
-            return !operator <(other);
-        }
+//     class BitReference
+//     {
+//         friend class ConstBitReference;
 
-    private:
-//-----------------------------------Variables-------------------------------------
+//     public:
+// //---------------------------------------------------------------------------------
+//         BitReference(uint8_t *src, size_t shift = MAX_SHIFT)
+//           : src_(src),
+//             shift_(shift)
+//         {
+//             assert(src != nullptr);
+//         }
 
-        const uint8_t *src_ = reinterpret_cast<const uint8_t *> (UNINIT_PTR);
-        size_t shift_ = 0;
-    };
+//         BitReference(const BitReference &other) = default;
+
+
+//         BitReference &operator =(const BitReference &other)
+//         {
+//             return *this = (bool) other;
+//         }
+
+//         BitReference &operator =(bool value)
+//         {
+//             if (value)
+//             {
+//                 *src_ |=  (1 << shift_);
+//             }
+//             else
+//             {
+//                 *src_ &= ~(1 << shift_);
+//             }
+
+//             return *this;
+//         }
+
+//         ~BitReference()
+//         {
+//             src_ = reinterpret_cast<uint8_t *> (const_cast<char *> (DESTR_PTR));
+//             shift_  = 0;    
+//         }
+// //---------------------------------------------------------------------------------
+//         operator bool() const
+//         {
+//             return *src_ & (1 << shift_);
+//         }
+
+//         bool operator ==(const BitReference &other) const
+//         {
+//             return (bool) *this == (bool) other; 
+//         }
+
+//         bool operator !=(const BitReference &other) const
+//         {
+//             return !operator ==(other);
+//         }
+
+//         bool operator <(const BitReference &other) const
+//         {
+//             return !((bool) *this) && (bool) other;
+//         }
+
+//         bool operator >(const BitReference &other) const
+//         {
+//             return other.operator <(*this);
+//         }
+
+//         bool operator <=(const BitReference &other) const
+//         {
+//             return !operator >(other);
+//         }
+
+//         bool operator >=(const BitReference &other) const
+//         {
+//             return !operator <(other);
+//         }
+
+//     private:
+// //-----------------------------------Variables-------------------------------------
+//         uint8_t *src_ = reinterpret_cast<uint8_t *> (const_cast<char *> (UNINIT_PTR));
+//         size_t shift_ = 0;
+//     };
 
     class BitReference
     {
-        friend class ConstBitReference;
-
     public:
 //---------------------------------------------------------------------------------
-
-        BitReference(uint8_t *src, size_t shift = MAX_SHIFT)
-          : src_(src),
+        BitReference(uint8_t *byte, size_t shift = MAX_SHIFT)
+          : byte_(byte),
             shift_(shift)
         {
-            assert(src != nullptr);
+            assert(byte != nullptr);
+            assert(shift <= MAX_SHIFT);
         }
 
-        BitReference(const BitReference &other) = default;
+        BitReference(const BitReference &other)
+          : byte_(other.byte_),
+            shift_(other.shift_)
+        {}
 
+        BitReference(BitReference &&other)
+          : byte_(other.byte_),
+            shift_(other.shift_)
+        {
+            other.byte_  = const_cast<uint8_t *> (reinterpret_cast<const uint8_t *> (MOVED_REMAINDERS_PTR));
+            other.shift_ = 0;
+        }
+
+        BitReference &operator =(bool bit_value)
+        {
+            set_bit_(bit_value);            
+
+            return *this;
+        }
 
         BitReference &operator =(const BitReference &other)
         {
-            return *this = (bool) other;
+            *this = (bool) other;
+
+            return *this;
         }
 
-        BitReference &operator =(bool value)
+        BitReference &operator =(BitReference &&other)
         {
-            if (value)
-            {
-                *src_ |=  (1 << shift_);
-            }
-            else
-            {
-                *src_ &= ~(1 << shift_);
-            }
+            *this = other;
 
             return *this;
         }
 
         ~BitReference()
         {
-            src_ = reinterpret_cast<uint8_t *> (const_cast<char *> (DESTR_PTR));
-            shift_  = 0;    
+             byte_ = const_cast<uint8_t *> (reinterpret_cast<const uint8_t *> (DESTR_PTR));
+            shift_ = POISONED_UINT64_T;
         }
-
-//---------------------------------------------------------------------------------
-        operator bool() const
-        {
-            return *src_ & (1 << shift_);
-        }
-
-        bool operator ==(const BitReference &other) const
-        {
-            return (bool) *this == (bool) other; 
-        }
-
-        bool operator !=(const BitReference &other) const
-        {
-            return !operator ==(other);
-        }
-
-        bool operator <(const BitReference &other) const
-        {
-            return !((bool) *this) && (bool) other;
-        }
-
-        bool operator >(const BitReference &other) const
-        {
-            return other.operator <(*this);
-        }
-
-        bool operator <=(const BitReference &other) const
-        {
-            return !operator >(other);
-        }
-
-        bool operator >=(const BitReference &other) const
-        {
-            return !operator <(other);
-        }
-
-    private:
-//-----------------------------------Variables-------------------------------------
-
-        uint8_t *src_ = reinterpret_cast<uint8_t *> (const_cast<char *> (UNINIT_PTR));
-        size_t shift_ = 0;
-    };
-
-
-    template<bool flag, class IsTrue, class IsFalse>
-    struct choose;
-
-    template<class IsTrue, class IsFalse>
-    struct choose<false, IsTrue, IsFalse>
-    {
-        typedef IsFalse type;
-    };
-
-    template<class IsTrue, class IsFalse>
-    struct choose<true, IsTrue, IsFalse>
-    {
-        typedef IsTrue type;
-    };
-
-    template<bool IsConst>
-    class Iterator                      
-    {
-        friend class Iterator<true>;
-        friend class Iterator<false>;
-
-        typedef typename choose<IsConst, ConstBitReference,   BitReference>::type Reference;
-        typedef typename choose<IsConst, ConstBitReference *, BitReference *>::type Pointer;
-        typedef typename choose<IsConst, const Vector<bool> *, Vector<bool> *>::type ContainerPtr;
 
     public:
-
-        using iterator_category = std::random_access_iterator_tag;
-        using value_type =  bool;
-        using difference_type = ptrdiff_t;
-        using pointer = Pointer;
-        using reference = Reference;
 //---------------------------------------------------------------------------------
+    operator bool() const
+    {
+        return get_bit_();
+    }
 
-        Iterator()
-          : data_(reinterpret_cast<uint8_t *> (const_cast<char *> (UNINIT_PTR))),
-            shift_(MAX_SHIFT),
-            container_(reinterpret_cast<ContainerPtr> (const_cast<const ContainerPtr> (UNINIT_PTR)))
+    private:
+
+    bool get_bit_() const
+    {
+        return (*byte_ >> shift_) & 0x1;
+    }
+
+    void set_bit_(bool bit_value)
+    {
+        *byte_ = bit_value ? (*byte_ | (0x1 << shift_)) : (*byte_ & ~(0x1 << shift_));
+    }
+
+    private:
+//----------------------------------Variables--------------------------------------
+        uint8_t *byte_ = reinterpret_cast<uint8_t *> (const_cast<char *> (UNINIT_PTR));
+        size_t shift_  = 0;
+    };
+
+    template<typename Container, typename ItType>
+    class BitIterator
+    {
+        static const bool is_const = std::is_same_v<const typename Container::value_type, ItType>;
+
+        friend typename std::conditional_t<is_const,
+                        BitIterator<std::remove_const_t<Container>, std::remove_const_t<ItType>>,
+                        BitIterator<const Container, const ItType>>;
+
+        // typedef typename choose<IsConst, ConstBitReference,   BitReference>::type Reference;
+        // typedef typename choose<IsConst, ConstBitReference *, BitReference *>::type Pointer;
+        // typedef typename choose<IsConst, const Vector<bool> *, Vector<bool> *>::type ContainerPtr;
+
+    public:
+        using iterator_category = std::contiguous_iterator_tag;
+        using value_type = bool;
+        using difference_type = ptrdiff_t;
+        using reference = std::conditional_t<is_const, typename Container::const_reference,
+                                                       typename Container::reference>;
+        using pointer   = std::conditional_t<is_const, typename Container::const_pointer,
+                                                       typename Container::pointer>;
+//---------------------------------------------------------------------------------
+        BitIterator()
+          : container_(reinterpret_cast<Container *> (UNINIT_PTR)),
+            data_(const_cast<uint8_t *> (reinterpret_cast<const uint8_t *> (UNINIT_PTR))),
+            shift_(MAX_SHIFT)
         {}
     
-        Iterator(ContainerPtr vector, uint8_t *data, size_t shift = MAX_SHIFT)
-          : data_(data),
-            shift_(shift),
-            container_(vector)
+        BitIterator(Container *container, uint8_t *data, size_t shift = MAX_SHIFT)
+          : container_(container),
+            data_(data),
+            shift_(shift)
         {
-            assert(vector != nullptr);
+            assert(container != nullptr);
             assert(data   != nullptr);
         }
 
-        Iterator(const Iterator<false> &other)
-          : data_(other.data_),
-            shift_(other.shift_),
-            container_(other.container_)
+        template<typename OtherContainer, typename OtherItType>
+        BitIterator(const BitIterator<OtherContainer, OtherItType> &other)
+          : container_(reinterpret_cast<Container *> (const_cast<uint64_t *> (reinterpret_cast<const uint64_t *> (other.container_)))),
+            data_(other.data_),
+            shift_(other.shift_)
         {}
 
-        Iterator &operator =(const Iterator<false> &other)
+        template<typename OtherContainer, typename OtherItType>
+        BitIterator(BitIterator<OtherContainer, OtherItType> &&other)
         {
-            data_  = other.data_;
-            shift_ = other.shift_;
-            container_ = other.container_;
+            *this = std::move(other);
+        }
+
+        template<typename OtherContainer, typename OtherItType>
+        BitIterator &operator =(const BitIterator<OtherContainer, OtherItType> &other)
+        {
+            if (reinterpret_cast<void *> (this) != reinterpret_cast<void *> (other))
+            {
+                container_ = other.container_;
+                data_  = other.data_;
+                shift_ = other.shift_;
+            }
 
             return *this;
         }
 
-        ~Iterator()
+        template<typename OtherContainer, typename OtherItType>
+        BitIterator &operator =(BitIterator<OtherContainer, OtherItType> &&other)
         {
+            if (*this != other)
+            {
+                container_ = other.container_;
+                data_  = other.data_;
+                shift_ = other.shift_;
+
+                other.container_ = reinterpret_cast<OtherContainer *> (const_cast<uint64_t *> (reinterpret_cast<const uint64_t *> (MOVED_REMAINDERS_PTR)));
+                other.data_      = const_cast<uint8_t *> (reinterpret_cast<const uint8_t *>(MOVED_REMAINDERS_PTR));
+                other.shift_     = POISONED_UINT64_T;
+            }
+
+            return *this;
+        }
+
+        ~BitIterator()
+        {
+            container_ = const_cast<Container *> (reinterpret_cast<const Container *> (DESTR_PTR));
             data_ = const_cast<uint8_t *> (reinterpret_cast<const uint8_t *> (DESTR_PTR));
-            shift_ = 0;
-            container_ = reinterpret_cast<ContainerPtr> (reinterpret_cast<uint64_t> (DESTR_PTR));
+            shift_ = POISONED_UINT64_T;
         }
 //---------------------------------------------------------------------------------
-
         reference operator *() const
         {
             return reference(data_, shift_);
         }
 
-        Iterator &operator ++()
+        BitIterator &operator ++()
         {
             if (shift_ == 0)
             {
@@ -326,15 +413,15 @@ class Vector<bool>
             return *this;
         }
 
-        Iterator operator ++(int)
+        BitIterator operator ++(int)
         {
-            Iterator prev = *this;
+            BitIterator prev = *this;
             ++(*this);
 
             return prev;
         }
 
-        Iterator &operator --()
+        BitIterator &operator --()
         {
             if (shift_ == MAX_SHIFT)
             {
@@ -349,15 +436,15 @@ class Vector<bool>
             return *this;
         }
 
-        Iterator operator --(int)
+        BitIterator operator --(int)
         {
-            Iterator prev = *this;
+            BitIterator prev = *this;
             --(*this);
 
             return prev;
         }
 
-        Iterator &operator +=(difference_type value)
+        BitIterator &operator +=(difference_type value)
         {
             if (value > 0)
             {
@@ -381,31 +468,31 @@ class Vector<bool>
             return *this;
         }
 
-        Iterator &operator -=(difference_type value)
+        BitIterator &operator -=(difference_type value)
         {
             return operator +=(-value);
         }
 
-        Iterator operator +(difference_type value) const
+        BitIterator operator +(difference_type value) const
         {
-            Iterator result = *this;
+            BitIterator result = *this;
 
             return result += value;
         }
 
-        friend Iterator operator +(difference_type value, const Iterator &other)
+        friend BitIterator operator +(difference_type value, const BitIterator &other)
         {
             return other + value;
         }
 
-        Iterator operator -(difference_type value) const
+        BitIterator operator -(difference_type value) const
         {
-            Iterator result = *this;
+            BitIterator result = *this;
 
             return result -= value;
         }
 
-        difference_type operator -(const Iterator &other) const
+        difference_type operator -(const BitIterator &other) const
         {
             return (data_ - other.data_) * static_cast<difference_type> (BITS_IN_BYTE) +
                                            static_cast<difference_type> (other.shift_) -
@@ -418,72 +505,111 @@ class Vector<bool>
         }
 
                                                                                                     // dude just make spaceship lul
-        bool operator ==(const Iterator<true> &other) const
+        // bool operator ==(const BitIterator<true> &other) const
+        // {
+        //     return (data_ == other.data_) && (shift_ == other.shift_); 
+        // }    
+        // bool operator ==(const BitIterator<false> &other) const
+        // {
+        //     return operator ==(BitIterator<true>(other));
+        // }
+        template<typename OtherContainer, typename OtherItType>
+        bool operator ==(const BitIterator<OtherContainer, OtherItType> &other) const
         {
-            return (data_ == other.data_) && (shift_ == other.shift_); 
-        }    
-        bool operator ==(const Iterator<false> &other) const
-        {
-            return operator ==(Iterator<true>(other));
+            return (data_ == other.data_) && (shift_ == other.shift_);
         }
 
-        bool operator !=(const Iterator<true> &other) const
+        // bool operator !=(const BitIterator<true> &other) const
+        // {
+        //     return !operator ==(other);
+        // }
+        // bool operator !=(const BitIterator<false> &other) const
+        // {
+        //     return operator !=(BitIterator<true>(other));
+        // }
+        template<typename OtherContainer, typename OtherItType>
+        bool operator !=(const BitIterator<OtherContainer, OtherItType> &other) const
         {
             return !operator ==(other);
         }
-        bool operator !=(const Iterator<false> &other) const
-        {
-            return operator !=(Iterator<true>(other));
-        }
 
-        bool operator <(const Iterator<true> &other) const
+        // bool operator <(const BitIterator<true> &other) const
+        // {
+        //     return (data_ < other.data_) || ((data_ == other.data_) && (shift_ > other.shift_));
+        // }
+        // bool operator <(const BitIterator<false> &other) const
+        // {
+        //     return operator <(BitIterator<true>(other));
+        // }
+        template<typename OtherContainer, typename OtherItType>
+        bool operator <(const BitIterator<OtherContainer, OtherItType> &other) const
         {
             return (data_ < other.data_) || ((data_ == other.data_) && (shift_ > other.shift_));
         }
-        bool operator <(const Iterator<false> &other) const
-        {
-            return operator <(Iterator<true>(other));
-        }
 
-        bool operator >(const Iterator<true> &other) const
+        // bool operator >(const BitIterator<true> &other) const
+        // {
+        //     return other < *this;
+        // }
+        // bool operator >(const BitIterator<false> &other) const
+        // {
+        //     return operator <(BitIterator<true>(other));
+        // }
+        template<typename OtherContainer, typename OtherItType>
+        bool operator >(const BitIterator<OtherContainer, OtherItType> &other) const
         {
             return other < *this;
         }
-        bool operator >(const Iterator<false> &other) const
-        {
-            return operator <(Iterator<true>(other));
-        }
 
-        bool operator <=(const Iterator<true> &other) const
+        // bool operator <=(const BitIterator<true> &other) const
+        // {
+        //     return !operator >(other);
+        // }
+        // bool operator <=(const BitIterator<false> &other) const
+        // {
+        //     return !operator >(BitIterator<true>(other));
+        // }
+        template<typename OtherContainer, typename OtherItType>
+        bool operator <=(const BitIterator<OtherContainer, OtherItType> &other) const
         {
             return !operator >(other);
         }
-        bool operator <=(const Iterator<false> &other) const
-        {
-            return !operator >(Iterator<true>(other));
-        }
 
-        bool operator >=(const Iterator<true> &other) const
+        // bool operator >=(const BitIterator<true> &other) const
+        // {
+        //     return !operator <(other);
+        // }
+        // bool operator >=(const BitIterator<false> &other) const
+        // {
+        //     return !operator <(BitIterator<true>(other));
+        // }
+        template<typename OtherContainer, typename OtherItType>
+        bool operator >=(const BitIterator<OtherContainer, OtherItType> &other) const
         {
             return !operator <(other);
-        }
-        bool operator >=(const Iterator<false> &other) const
-        {
-            return !operator <(Iterator<true>(other));
         }
 
     private:
 //-------------------------------------Variables-----------------------------------
+        Container *container_ = nullptr;
 
         uint8_t *data_ = nullptr;
-        size_t shift_ = 0;
-
-        ContainerPtr container_ = nullptr;
+        size_t shift_  = 0;
     };
 
 public:
-//---------------------------------------------------------------------------------
 
+    using value_type        = bool;
+    using pointer           = bool *;
+    using const_pointer     = const bool *;
+    using reference         = BitReference;
+    using const_reference   = const BitReference;
+    using difference_type   = std::ptrdiff_t;
+
+    using Iterator = BitIterator<Vector<bool>, bool>;
+
+    using ConstIterator = BitIterator<const Vector<bool>, const bool>;
+//---------------------------------------------------------------------------------
     Vector()
       : capacity_       (0),
         booked_capacity_(0),
@@ -491,11 +617,20 @@ public:
         data_           (reinterpret_cast<uint8_t *> (const_cast<char *> (UNINIT_PTR)))
     {}
 
-    Vector(const size_t reserved_size, const bool value = false)
+    Vector(const std::initializer_list<bool> &init_list)
+    {
+        size_t list_size = init_list.size();
+        for (size_t index = 0; index < list_size; ++index)
+        {
+            push_back(*(init_list.begin() + index));
+        }
+    }
+
+    Vector(const size_t reserved_size, bool value = false)
       : capacity_       (round_to_eight_multiple(reserved_size)),
         booked_capacity_(reserved_size),
         size_           (reserved_size),
-        data_(new uint8_t[bits_to_bytes_quantity(capacity_)])
+        data_(new uint8_t[bits_to_bytes_quantity(capacity_)]{value})
     {
         if (reserved_size != 0)
         {   
@@ -509,8 +644,10 @@ public:
         size_(other.size_),
         data_(new uint8_t[bits_to_bytes_quantity(capacity_)])
     {
-        Iterator<false> data_copy_to(this, data_);
-        Iterator<true> data_copy_from(this, other.data_);
+        // BitIterator<false> data_copy_to(this, data_);
+        // BitIterator<true> data_copy_from(this, other.data_);
+        Iterator data_copy_to(this, data_);
+        ConstIterator data_copy_from(this, other.data_);
         copy_data_(data_copy_to, data_copy_from, booked_capacity_);
     }
 
@@ -531,8 +668,11 @@ public:
         size_            = other.size_;
         data_            = new uint8_t[bits_to_bytes_quantity(capacity_)];
 
-        Iterator<false> data_copy_to( this, data_);
-        Iterator<true> data_copy_from(this, other.data_);
+        // BitIterator<false> data_copy_to( this, data_);
+        // BitIterator<true> data_copy_from(this, other.data_);
+        // copy_data_(data_copy_to, data_copy_from, booked_capacity_);
+        Iterator data_copy_to(this, data_);
+        ConstIterator data_copy_from(this, other.data_);
         copy_data_(data_copy_to, data_copy_from, booked_capacity_);
 
         return *this;
@@ -555,7 +695,6 @@ public:
         destroy_fields_();
     }
 //---------------------------------Dump--------------------------------------------
-
     void dump(size_t from = 0, size_t to = VECTOR_MAX_CAPACITY + 1)
     {
         if (to == VECTOR_MAX_CAPACITY + 1)
@@ -589,7 +728,6 @@ public:
         std::cout << value << "\n---------------DUMP ENDED---------------\n\n" << std::endl;
     }
 //--------------------------------Verificator--------------------------------------
-
     void verificator()
     {
         assert(size_ <= booked_capacity_);
@@ -599,7 +737,6 @@ public:
         assert(data_ != const_cast<uint8_t *> (reinterpret_cast<const uint8_t *> (INVALID_PTR)));
     }
 //--------------------------------Size and capacity--------------------------------
-
     bool empty() const
     {
         return size_ == 0;
@@ -665,7 +802,6 @@ public:
         capacity_        = actual_capacity;
     }
 //-------------------------------Element access----------------------------------
-
     const BitReference operator [](size_t index) const
     {
         return const_cast<Vector<bool> *> (this)->operator[](index);
@@ -725,39 +861,100 @@ public:
         return data_;
     }
 
-//--------------------------------Iterators----------------------------------------
-
-    Iterator<false> begin()
+//---------------------------------Iterators---------------------------------------
+    // BitIterator<false> begin()
+    // {
+    //     return BitIterator<false>(this, data_);
+    // }
+    Iterator begin()
     {
-        return Iterator<false>(this, data_);
+        // return BitIterator<Vector<bool>, value_type>(this, data_);
+        return Iterator(this, data_);
     }
 
-    Iterator<true> cbegin() const
+    ConstIterator begin() const
     {
-        return Iterator<true>(this, data_);
+        return cbegin();
     }
 
-    Iterator<false> end()
+    // BitIterator<true> cbegin() const
+    // {
+    //     return BitIterator<true>(this, data_);
+    // }
+    ConstIterator cbegin() const
+    {
+        return ConstIterator(this, data_);
+    }
+
+    // BitIterator<false> end()
+    // {
+    //     BitsAndBytes end(size_);
+
+    //     return BitIterator<false> (this, data_ + end.bytes_, MAX_SHIFT - end.bits_);
+    // }
+    Iterator end()
     {
         BitsAndBytes end(size_);
 
-        return Iterator<false> (this, data_ + end.bytes_, MAX_SHIFT - end.bits_);
+        return Iterator(this, data_ + end.bytes_, MAX_SHIFT - end.bits_);
     }
 
-    Iterator<true> cend() const
+    ConstIterator end() const
+    {
+        return cend();
+    }
+
+    // BitIterator<true> cend() const
+    // {
+    //     BitsAndBytes end(size_);
+
+    //     return BitIterator<true>(this, data_ + end.bytes_, MAX_SHIFT - end.bits_);
+    // }
+    ConstIterator cend() const
     {
         BitsAndBytes end(size_);
 
-        return Iterator<true>(this, data_ + end.bytes_, MAX_SHIFT - end.bits_);
+        return ConstIterator(this, data_ + end.bytes_, MAX_SHIFT - end.bits_);
     }
-//--------------------------------Modifiers----------------------------------------
 
+    std::reverse_iterator<ConstIterator> crbegin() const
+    {
+        return std::make_reverse_iterator(cend());
+    }
+
+    std::reverse_iterator<Iterator> rbegin()
+    {
+        return std::make_reverse_iterator(end());
+    }
+
+    std::reverse_iterator<ConstIterator> rbegin() const
+    {
+        return crbegin();
+    }
+
+    std::reverse_iterator<ConstIterator> crend() const
+    {
+        return std::make_reverse_iterator(cbegin());
+    }
+
+    std::reverse_iterator<Iterator> rend()
+    {
+        return std::make_reverse_iterator(begin());
+    }
+
+    std::reverse_iterator<ConstIterator> rend() const
+    {
+        return crend();
+    }
+
+//----------------------------------Modifiers--------------------------------------
     void clear()
     {
         size_ = 0;
     }
 
-    Iterator<false> insert(Iterator<true> pos, bool value)
+    // BitIterator<false> insert(BitIterator<true> pos, bool value)
+    Iterator insert(ConstIterator pos, bool value)
     {
         ptrdiff_t index = pos - cbegin();
         if ((index < 0) || (index > static_cast<ptrdiff_t> (size_)))
@@ -771,8 +968,10 @@ public:
         init_elements_(size_, size_ + 1);
         BitsAndBytes data_copy_to_index(index + 1);
         BitsAndBytes data_copy_from_index(index);
-        Iterator<false> data_copy_to (this, data_ + data_copy_to_index.bytes_,  MAX_SHIFT - data_copy_to_index.bits_);
-        Iterator<true> data_copy_from(this, data_ + data_copy_from_index.bytes_,MAX_SHIFT - data_copy_from_index.bits_);
+        // BitIterator<false> data_copy_to (this, data_ + data_copy_to_index.bytes_,  MAX_SHIFT - data_copy_to_index.bits_);
+        // BitIterator<true> data_copy_from(this, data_ + data_copy_from_index.bytes_,MAX_SHIFT - data_copy_from_index.bits_);
+        Iterator data_copy_to (this, data_ + data_copy_to_index.bytes_,  MAX_SHIFT - data_copy_to_index.bits_);
+        ConstIterator data_copy_from(this, data_ + data_copy_from_index.bytes_,MAX_SHIFT - data_copy_from_index.bits_);
         copy_data_(data_copy_to, data_copy_from, size_ - index);
 
         ++size_;
@@ -782,7 +981,8 @@ public:
         return begin() + index;
     }
 
-    Iterator<false> erase(Iterator<true> pos)
+    // BitIterator<false> erase(BitIterator<true> pos)
+    Iterator erase(ConstIterator pos)
     {
         ptrdiff_t index = pos - cbegin();
         if ((index < 0) || (index > static_cast<ptrdiff_t> (size_)))
@@ -794,8 +994,10 @@ public:
 
         BitsAndBytes data_copy_to_index(index);
         BitsAndBytes data_copy_from_index(index + 1);
-        Iterator<false> data_copy_to (this, data_ + data_copy_to_index.bytes_,   MAX_SHIFT - data_copy_to_index.bits_);
-        Iterator<true> data_copy_from(this, data_ + data_copy_from_index.bytes_, MAX_SHIFT - data_copy_from_index.bits_);
+        // BitIterator<false> data_copy_to (this, data_ + data_copy_to_index.bytes_,   MAX_SHIFT - data_copy_to_index.bits_);
+        // BitIterator<true> data_copy_from(this, data_ + data_copy_from_index.bytes_, MAX_SHIFT - data_copy_from_index.bits_);
+        Iterator data_copy_to (this, data_ + data_copy_to_index.bytes_,   MAX_SHIFT - data_copy_to_index.bits_);
+        ConstIterator data_copy_from(this, data_ + data_copy_from_index.bytes_, MAX_SHIFT - data_copy_from_index.bits_);
         copy_data_(data_copy_to, data_copy_from, size_ - index - 1);
 
         --size_;
@@ -873,7 +1075,6 @@ public:
 
 private:
 //--------------------------------Utilitary functions------------------------------
-
     bool get_bit_value_(size_t where)
     {
         BitsAndBytes pos(where);
@@ -897,7 +1098,8 @@ private:
         }
     }
 
-    void copy_data_(Iterator<false> dest, Iterator<true> src, size_t quantity)
+    // void copy_data_(BitIterator<false> dest, BitIterator<true> src, size_t quantity)
+    void copy_data_(Iterator dest, ConstIterator src, size_t quantity)
     {
         if (dest == src)
         {
@@ -927,8 +1129,10 @@ private:
         *actual_capacity = round_to_eight_multiple(new_capacity);
         uint8_t *new_data = new uint8_t[bits_to_bytes_quantity(*actual_capacity)];
 
-        Iterator<true>  data_copy_from(this, data_);
-        Iterator<false> data_copy_to(this, new_data);
+        // BitIterator<true>  data_copy_from(this, data_);
+        // BitIterator<false> data_copy_to(this, new_data);
+        Iterator data_copy_from(this, data_);
+        ConstIterator data_copy_to(this, new_data);
         copy_data_(data_copy_to, data_copy_from, size_);
 
         return new_data;
@@ -942,8 +1146,8 @@ private:
 
     void destroy_fields_()
     {
-        capacity_ = POISONED_SIZE_T;
-        size_     = POISONED_SIZE_T;
+        capacity_ = POISONED_UINT64_T;
+        size_     = POISONED_UINT64_T;
         data_     = const_cast<uint8_t *> (reinterpret_cast<const uint8_t *> (DESTR_PTR));
     }
 
@@ -985,6 +1189,8 @@ private:
 
 private:
 //-----------------------------------Variables-------------------------------------
+    static constexpr uint64_t VECTOR_MAX_CAPACITY       = 1024;
+    static constexpr uint64_t DEFAULT_RESIZE_MULTIPLIER = 2;
 
     size_t capacity_        = 0;
     size_t booked_capacity_ = 0;

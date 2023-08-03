@@ -11,24 +11,20 @@
 #include <iterator>
 #include <new>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
+#include "chunkalloc.hpp"
+#include "dynamicalloc.hpp"
 #include "myforward.hpp"
 #include "mymove.hpp"
+#include "specialvalues.hpp"
 
-
-//---------------------------Const section-----------------------------------------
-const char *UNINIT_PTR           = reinterpret_cast<const char *> (0xDEADBEEF);
-const char *DESTR_PTR            = reinterpret_cast<const char *> (0xBAADF00D);
-const char *INVALID_PTR          = reinterpret_cast<const char *> (0xDEADDEAD);
-const char *MOVED_REMAINDERS_PTR = reinterpret_cast<const char *> (0xFEEDCAFE);
-const size_t POISONED_SIZE_T     = 0xAB0BAC0C;
-//---------------------------------------------------------------------------------
 
 template<typename Type>
 class Vector;
 
 template<typename Container, typename ItType>
-class VectorBaseIterator : public std::iterator<std::bidirectional_iterator_tag, ItType>
+class VectorBaseIterator : public std::iterator<std::contiguous_iterator_tag, ItType>
 {
     static const bool is_const = std::is_same_v<const typename Container::value_type, ItType>;
 
@@ -49,7 +45,7 @@ public:
         index_(0)
     {}
 
-    VectorBaseIterator(Container *vector, size_t index)
+    VectorBaseIterator(Container *vector, uint64_t index)
       : container_(vector),
         index_(index)
     {
@@ -92,7 +88,7 @@ public:
             index_     = other.index_;
 
             other.container_ = const_cast<OtherContainer *> (reinterpret_cast<const OtherContainer *> (MOVED_REMAINDERS_PTR));
-            other.index_     = POISONED_SIZE_T;
+            other.index_     = POISONED_UINT64_T;
         }
 
         return *this;
@@ -101,7 +97,7 @@ public:
     ~VectorBaseIterator()
     {
         container_ = reinterpret_cast<Container *> (reinterpret_cast<uint64_t> (DESTR_PTR));
-        index_     = POISONED_SIZE_T;
+        index_     = POISONED_UINT64_T;
     }
 //---------------------------------------------------------------------------------
     reference operator *() const
@@ -172,7 +168,7 @@ public:
         return index_ - other.index_;
     }
 
-    reference operator [](size_t index) const
+    reference operator [](uint64_t index) const
     {
         return container_->operator [](index);
     }
@@ -219,7 +215,7 @@ private:
     int index_ = 0;
 };
 
-//--------------------------------Class Vector-------------------------------------
+//-----------------------------------Class Vector----------------------------------
 template<typename Type>
 class Vector
 {
@@ -229,13 +225,13 @@ public:
     using const_pointer     = const Type *;
     using reference         = Type &;
     using const_reference   = const Type &;
-    using iterator_category = std::bidirectional_iterator_tag;
+    using iterator_category = std::contiguous_iterator_tag;
 
     template<typename Vector>
-    using Iterator = VectorBaseIterator<Vector, typename Vector::value_type>;
+    using Iterator = VectorBaseIterator<Vector, value_type>;
     
     template<typename Vector>
-    using ConstIterator = VectorBaseIterator<const Vector, const typename Vector::value_type>;
+    using ConstIterator = VectorBaseIterator<const Vector, const value_type>;
 
 //---------------------------------------------------------------------------------
     Vector()
@@ -246,14 +242,14 @@ public:
 
     Vector(const std::initializer_list<Type> &init_list)
     {
-        size_t list_size = init_list.size();
-        for (size_t index = 0; index < list_size; ++index)
+        uint64_t list_size = init_list.size();
+        for (uint64_t index = 0; index < list_size; ++index)
         {
             push_back(*(init_list.begin() + index));
         }
     }
 
-    Vector(const size_t reserved_size, const Type &value = Type())
+    Vector(uint64_t reserved_size, const Type &value = Type())
       : Vector()
     {
         if (reserved_size != 0)
@@ -319,7 +315,7 @@ public:
     }
 
 //--------------------------------------Dump---------------------------------------
-    void dump(void (*dump_elem)(const Type &value), size_t from = 0, size_t to = VECTOR_MAX_CAPACITY + 1) const
+    void dump(void (*dump_elem)(const Type &value), uint64_t from = 0, uint64_t to = VECTOR_MAX_CAPACITY + 1) const
     {   
         if (to == VECTOR_MAX_CAPACITY + 1)
         {
@@ -339,7 +335,7 @@ public:
 
         std::cout << std::endl;
     }
-//------------------------------Verificator----------------------------------------
+//-----------------------------------Verificator-----------------------------------
     void verificator()
     {
         assert(size_ <= capacity_);
@@ -347,28 +343,28 @@ public:
         assert(data_ != nullptr);
         assert(data_ != INVALID_PTR);
     }
-//---------------------------Size and capacity-------------------------------------
+//----------------------------------Size and capacity------------------------------
     bool empty() const
     {
         return size_ == 0;
     }
 
-    size_t size() const
+    uint64_t size() const
     {
         return size_;
     }
 
-    size_t max_size() const
+    uint64_t max_size() const
     {
         return VECTOR_MAX_CAPACITY;
     }
 
-    size_t capacity() const
+    uint64_t capacity() const
     {
         return capacity_;
     }
 
-    void reserve(size_t reserved_capacity)
+    void reserve(uint64_t reserved_capacity)
     {
         if (reserved_capacity <= capacity_)
         {
@@ -403,25 +399,25 @@ public:
         data_     = new_data;
         capacity_ = size_;
     }
-//-----------------------------Accessing elements----------------------------------
-    const Type &operator [](size_t index) const
+//---------------------------------Accessing elements------------------------------
+    const Type &operator [](uint64_t index) const
     {
         return const_cast<const Type &>(const_cast<Vector<Type> *>(this)->operator[](index));
     }
 
-    Type &operator [](size_t index)
+    Type &operator [](uint64_t index)
     {
         assert(index <= size_);
 
         return reinterpret_cast<Type &> (data_[index * sizeof(Type)]);
     }
 
-    const Type &at(size_t index) const
+    const Type &at(uint64_t index) const
     {
        return const_cast<const Type &>(const_cast<Vector<Type> *>(this)->at(index));
     }
 
-    Type &at(size_t index)
+    Type &at(uint64_t index)
     {
         assert(index < size_);
 
@@ -458,7 +454,7 @@ public:
         return reinterpret_cast<Type *> (data_);
     }
 
-//---------------------------Iterators---------------------------------------------
+//------------------------------------Iterators------------------------------------
     ConstIterator<Vector> cbegin() const
     {
         return ConstIterator<Vector>(this, 0);
@@ -491,12 +487,12 @@ public:
 
     std::reverse_iterator<ConstIterator<Vector>> crbegin() const
     {
-        return std::make_reverse_iterator(ConstIterator<Vector>(this, size_));
+        return std::make_reverse_iterator(cend());
     }
     
     std::reverse_iterator<Iterator<Vector>> rbegin()
     {
-        return std::make_reverse_iterator(Iterator<Vector>(this, size_));
+        return std::make_reverse_iterator(end());
     }
 
     std::reverse_iterator<ConstIterator<Vector>> rbegin() const
@@ -506,19 +502,19 @@ public:
 
     std::reverse_iterator<ConstIterator<Vector>> crend() const
     {
-        return std::make_reverse_iterator(ConstIterator<Vector>(this, 0));
+        return std::make_reverse_iterator(cbegin());
     }
 
     std::reverse_iterator<Iterator<Vector>> rend()
     {
-        return std::make_reverse_iterator(Iterator<Vector>(this, 0));
+        return std::make_reverse_iterator(begin());
     }
 
     std::reverse_iterator<ConstIterator<Vector>> rend() const
     {
         return crend();
     }
-//---------------------------Modifiers---------------------------------------------
+//-----------------------------------Modifiers-------------------------------------
     void clear()
     {
         destroy_existing_elems_(0, size_);
@@ -531,7 +527,7 @@ public:
         std::ptrdiff_t index = pos - cbegin();
         if ((index < 0) || (index > static_cast<std::ptrdiff_t> (size_)))
         {
-            std::cerr << "ERROR(Vector " << this << "): attempt to insert out of bounds" << std::endl;
+            std::cerr << "ERROR(Vector " << typeid(*this).name() << "): attempt to insert out of bounds" << std::endl;
 
             return end();
         }
@@ -548,7 +544,7 @@ public:
         return begin() + index;
     }
 
-    template<class... Args>
+    template<typename... Args>
     Iterator<Vector> emplace(ConstIterator<Vector> pos, Args &&... args)
     {
         std::ptrdiff_t index = pos - begin();
@@ -567,7 +563,7 @@ public:
         return begin() + index;
     }
 
-    template<class... Args>
+    template<typename... Args>
     Type &emplace_back(Args &&... args)
     {
         emplace(cend(), my_forward<Args>(args)...);
@@ -578,7 +574,7 @@ public:
         std::ptrdiff_t index = pos - begin();
         if ((index < 0) || (index > static_cast<std::ptrdiff_t> (size_)))
         {
-            std::cerr << "ERROR(Vector " << this << "): attempt to erase out of bounds" << std::endl;
+            std::cerr << "ERROR(Vector " << typeid(*this).name() << "): attempt to erase out of bounds" << std::endl;
 
             return end();
         }
@@ -600,7 +596,7 @@ public:
     {
         if (size_ == 0)
         {
-            std::cerr << "ERROR(Vector " << this << "): null pop attempt" << std::endl;
+            std::cerr << "ERROR(Vector " << typeid(*this).name() << "): null pop attempt" << std::endl;
 
             return;
         }
@@ -608,12 +604,11 @@ public:
         erase(begin() + size_ - 1);
     }
 
-#define aboba printf("aboba %d\n", __LINE__);
-    void resize(size_t new_size, const Type &value = Type())
-    {
+    void resize(uint64_t new_size, const Type &value = Type())
+    {   
         if (new_size > VECTOR_MAX_CAPACITY)
         {
-            std::cerr << "ERROR(Vector " << this << "): attempt to resize to more than VECTOR_MAX_CAPACITY (which is "
+            std::cerr << "ERROR(Vector " << typeid(*this).name() << "): attempt to resize to more than VECTOR_MAX_CAPACITY (which is "
                       << VECTOR_MAX_CAPACITY << ")" << std::endl; 
 
             return;
@@ -635,7 +630,7 @@ public:
             return;
         }
 
-        size_t new_capacity = calculate_enough_capacity_(new_size);                 // new size is bigger than capacity
+        uint64_t new_capacity = calculate_enough_capacity_(new_size);                 // new size is bigger than capacity
         char *new_data = vector_realloc_(new_capacity);
 
         if ((data_ != const_cast<char *> (UNINIT_PTR)) && data_is_valid_())
@@ -670,12 +665,12 @@ public:
     }
 
 private:
-//--------------------------Utilitary functions------------------------------------
-    size_t calculate_enough_capacity_(size_t required_size) 
+//-----------------------------------Utilitary functions---------------------------
+    uint64_t calculate_enough_capacity_(uint64_t required_size) 
     {
-        size_t capacity = 1;
+        uint64_t capacity = 1;
 
-        for (size_t base = 32; base > 0; base >>= 1)
+        for (uint64_t base = 32; base > 0; base >>= 1)
         {
             if (required_size >= (capacity << base))
             {
@@ -688,29 +683,29 @@ private:
         return capacity > VECTOR_MAX_CAPACITY ? VECTOR_MAX_CAPACITY : capacity;
     }
 
-    void init_elements_(size_t from, size_t to, const Type &value = Type())
+    void init_elements_(uint64_t from, uint64_t to, const Type &value = Type())
     {                                                   
-        for (size_t vector_elem_index = from; vector_elem_index < to; ++vector_elem_index)
+        for (uint64_t vector_elem_index = from; vector_elem_index < to; ++vector_elem_index)
         {
             new (data_ + vector_elem_index * sizeof(Type)) Type(value); 
         }                                                                       
     }
 
-    void copy_data_to_uninit_place_(char *dest, const char *src, size_t quantity)
+    void copy_data_to_uninit_place_(char *dest, const char *src, uint64_t quantity)
     {
         if ((dest == nullptr) || (src == nullptr))
         {
             return;
         }
 
-        for (size_t index = 0; index < quantity; ++index)
+        for (uint64_t index = 0; index < quantity; ++index)
         {
             const Type &elem_to_copy = reinterpret_cast<const Type &> (src[index * sizeof(Type)]);
             new (dest + index * sizeof(Type)) Type(elem_to_copy);
         }
     }
 
-    void copy_data_(char *dest, const char *src, size_t quantity)
+    void copy_data_(char *dest, const char *src, uint64_t quantity)
     {
         if ((dest == nullptr) || (src == nullptr))
         {
@@ -733,14 +728,14 @@ private:
             casted_src  += quantity - 1;
         }
         
-        for (size_t counter = 0; counter < quantity; ++counter)
+        for (uint64_t counter = 0; counter < quantity; ++counter)
         {
             std::ptrdiff_t shift = from_left_to_right ? -counter : counter;
             *(casted_dest + shift) = *(casted_src + shift);
         }
     }
 
-    void move_data_(Iterator<Vector> dest, ConstIterator<Vector> src, size_t quantity)
+    void move_data_(Iterator<Vector> dest, ConstIterator<Vector> src, uint64_t quantity)
     {
         if (dest == src)
         {
@@ -755,14 +750,14 @@ private:
             src  += quantity - 1;
         }
 
-        for (size_t counter = 0; counter < quantity; ++counter)
+        for (uint64_t counter = 0; counter < quantity; ++counter)
         {
             std::ptrdiff_t shift = from_left_to_right ? -counter : counter;
             *(dest + shift) = my_move(*(src + shift));
         }
     }
 
-    char *vector_realloc_(size_t new_capacity)
+    char *vector_realloc_(uint64_t new_capacity)
     {
         char *new_data = new char[new_capacity * sizeof(Type)];
         copy_data_to_uninit_place_(new_data, data_, size_);
@@ -773,12 +768,14 @@ private:
 
     bool data_is_valid_() const
     {
-        return (data_ != const_cast<char *> (DESTR_PTR)) && (data_ != const_cast<char *> (INVALID_PTR) && (data_ != const_cast<char *> (MOVED_REMAINDERS_PTR)));
+        return (data_ != const_cast<char *> (DESTR_PTR))  &&
+               (data_ != const_cast<char *> (INVALID_PTR) &&
+               (data_ != const_cast<char *> (MOVED_REMAINDERS_PTR)));
     }
 
-    void destroy_existing_elems_(size_t from, size_t to)
+    void destroy_existing_elems_(uint64_t from, uint64_t to)
     {
-        for (size_t index = from; index < to; ++index)
+        for (uint64_t index = from; index < to; ++index)
         {
             (reinterpret_cast<Type *> (data_))[index].~Type();
         }
@@ -786,17 +783,17 @@ private:
 
     void destroy_fields_()
     {
-        capacity_ = POISONED_SIZE_T;
-        size_     = POISONED_SIZE_T;
+        capacity_ = POISONED_UINT64_T;
+        size_     = POISONED_UINT64_T;
         data_     = const_cast<char *> (DESTR_PTR);
     }
 
     std::strong_ordering vector_cmp_(const Vector<Type> &other) const
     {
-        size_t this_size  = size();
-        size_t other_size = other.size();
-        size_t min_size   = std::min(this_size, other_size);
-        for (size_t cur_elem_index = 0; cur_elem_index < min_size; ++cur_elem_index)
+        uint64_t this_size  = size();
+        uint64_t other_size = other.size();
+        uint64_t min_size   = std::min(this_size, other_size);
+        for (uint64_t cur_elem_index = 0; cur_elem_index < min_size; ++cur_elem_index)
         {
             const Type *this_data_ptr  = data()       + cur_elem_index;
             const Type *other_data_ptr = other.data() + cur_elem_index;
@@ -825,11 +822,11 @@ private:
 
 private:
 //----------------------------Variables--------------------------------------------
-    static const size_t VECTOR_MAX_CAPACITY       = 1024;
-    static const size_t DEFAULT_RESIZE_MULTIPLIER = 2;
+    static constexpr uint64_t VECTOR_MAX_CAPACITY       = 1024;
+    static constexpr uint64_t DEFAULT_RESIZE_MULTIPLIER = 2;
 
-    size_t capacity_  = 0;
-    size_t size_      = 0;
+    uint64_t capacity_  = 0;
+    uint64_t size_      = 0;
     
     char *data_ = const_cast<char *> (UNINIT_PTR);
 };
